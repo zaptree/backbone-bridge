@@ -1,5 +1,10 @@
 define(['underscore', 'backbone'], function   (_,Backbone) {
-	var app = _.extend({
+	var app = function(req,res){
+		this.addGlobalHandler();
+		this.request = req;
+		this.response = res;
+	};
+	_.extend(app.prototype,{
 		isNode:false,
 		pendingViews:0,
 		globalEvents:{
@@ -9,11 +14,12 @@ define(['underscore', 'backbone'], function   (_,Backbone) {
 			if(!view.options.noPending){
 				this.pendingViews--;
 			}
-			console.log('reducing a view')
+			//console.log('reducing a view')
 			//not sure if I should put under if statement
 			//if there are no pending views we can
 			if(this.pendingViews===0){
-				console.log($.html());
+				this.res.end.call(this.res,$.html());
+				//console.log($.html());
 				//console.log('its ready to return');
 			}
 
@@ -53,6 +59,6 @@ define(['underscore', 'backbone'], function   (_,Backbone) {
 		}
 
 	},Backbone.Events);
-	app.addGlobalHandler();
+
 	return app;
 });

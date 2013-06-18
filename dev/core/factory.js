@@ -131,16 +131,19 @@ define(['app','underscore', 'backbone','base/controller','base/model','base/view
 							//options.template && (_this.template = options.template);
 
 						},
-						loadData:function(){
+						loadData:function(options){
 							var _this = this;
 							if(!_this.model || _.isUndefined(_this.model.attributes)){
 								_this.model = factory.model.create({},_this.model);
 								//we dont need to bind to the model since we just passed a data object to be rendered
-								_this._render();
+								_this._render(options);
 							}else{
+								//make sure we are not already listening
+								//TODO:I dont like what I am doing here, unbinding and binding again
+								_this.stopListening(_this.model,'change',_this.onModelChange);
 								_this.listenTo(_this.model,'change',_this.onModelChange);
 								if(_this.model.attributes){
-									_this._render();
+									_this._render(options);
 								}else if(!_this.options.noFetch){
 									_this.model.fetch();
 								}
@@ -170,8 +173,9 @@ define(['app','underscore', 'backbone','base/controller','base/model','base/view
 						 * I need to rethink the name of this since it is used in onModelChange
 						 * @private
 						 */
-						_render:function(){
+						_render:function(options){
 							var _this=this;
+							options = options || {};
 							//I should make the async take an array of methods to do in a row
 							_this.async.call(_this,_this.beforeRender,function(){
 								_this.async.call(_this,_this.renderTemplate,function(){
@@ -179,7 +183,10 @@ define(['app','underscore', 'backbone','base/controller','base/model','base/view
 
 										_this.trigger('rendered');
 										if(_.isFunction(_this.options.onRender)){
-											_this.options.onRender();
+											_this.options.onRender.call(_this);
+										}
+										if(_.isFunction(options.onRender)){
+											_this.options.onRender.call(_this);
 										}
 										//this must be last if we want the previous callbacks to run before the app ends
 										app.trigger('view:rendered',_this);
@@ -187,11 +194,11 @@ define(['app','underscore', 'backbone','base/controller','base/model','base/view
 								});
 							});
 						},
-						render:function(){
+						render:function(options){
 							var _this=this;
 
-							_this.loadData();
-							_this._render();
+							_this.loadData(options);
+							//_this._render(options);
 						},
 						afterRender:function(){
 							//this.async()();
@@ -268,11 +275,13 @@ define(['app','underscore', 'backbone','base/controller','base/model','base/view
 						before:function(){},
 						after:function(){},
 						render:function(view,layout,reRenderLayout){
-							var _this = this,
-								layoutModel = _this.layoutModel || app.initModel || view.model,
-								layoutData = layoutModel && (layoutModel.attributes);
-
-
+							var _this = this;
+							//TODO:I need to find a better way to call the renderLayout (maybe add it to app.js?)
+							app.dispatch('modules/layout/layout','renderLayout',['default',{'onRender':function(){
+								app.$document.append(this.$el);
+								$('#content').html(view.$el);
+							}}]);
+							view.render();
 
 							//for the layout data first look for : this.layoutModel > app.initModel > view.model
 							//do not do a fetch if the model is already populated but if it is not then do the fetch
