@@ -41,10 +41,10 @@ requirejs.config({
 //with multiple requests
 requirejs([
 	'app','underscore', 'backbone','config/routes','cheerio','text!../index.html'
-	,'bootstrap'
-], function   (app,_,Backbone,routes,cheerio,tmplIndex) {
+	//,'bootstrap'
+], function   (application,_,Backbone,routes,cheerio,tmplIndex) {
 
-	app.isNode=true;
+console.log(application);
 
 	//I need to load all the templates
 
@@ -54,29 +54,35 @@ requirejs([
 	//Backbone.history.loadUrl('home/whatever');
 	//Backbone.history.loadUrl('home');
 
-	var application = connect()
+	var connectApp = connect()
 		.use(connect.logger('dev'))
 		.use(connect.static('public'))
 		.use(function(req, res){
 
-			//var app = new app();
+			var app = new application();
+
+			app.isNode=true;
 
 
-			//todo:Global Will be shared between request making it unsafe
-			GLOBAL.$ = cheerio.load(tmplIndex);
-			Backbone.$ = $;
-			app.$document = $('#layout');
 
-			var router = Backbone.Router.extend({
-				routes:routes
-			});
-			var Router = new router();
-			//I can use this alternatively
-			Router.on('route',function(method,args){
-				var parts = method.split('.');
-				app.dispatch(parts[0],parts[1],args);
-			});
-			Backbone.history.loadUrl('home');
+			app.$ = cheerio.load(tmplIndex);
+			app.test++;
+			res.end(app.test + ' count');return;
+
+			//todo:I don't think this is safe since it will be shared between request
+//			Backbone.$ = $;
+//			app.$document = $('#layout');
+//
+//			var router = Backbone.Router.extend({
+//				routes:routes
+//			});
+//			var Router = new router();
+//			//I can use this alternatively
+//			Router.on('route',function(method,args){
+//				var parts = method.split('.');
+//				app.dispatch(parts[0],parts[1],args);
+//			});
+//			Backbone.history.loadUrl('home');
 
 			app.res = res;
 			//res.end('hello world\n');

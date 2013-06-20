@@ -1,10 +1,11 @@
 define(['underscore', 'backbone'], function   (_,Backbone) {
 	var app = function(req,res){
-		this.addGlobalHandler();
+		this.addGlobalHandler(this);
 		this.request = req;
 		this.response = res;
 	};
 	_.extend(app.prototype,{
+		test:0,
 		isNode:false,
 		pendingViews:0,
 		globalEvents:{
@@ -25,8 +26,16 @@ define(['underscore', 'backbone'], function   (_,Backbone) {
 
 
 		},
+		loadedControllers:{},
 		dispatch:function(controllerPath,method,args){
+			var _this = this,
+				lc=_this.loadedControllers;
+			if(lc[controllerPath]){
+				lc[controllerPath].run(method,args);
+				return;
+			}
 			require([controllerPath],function(controller){
+				lc[controllerPath] = controller;
 				controller.run(method,args);
 			});
 		},
@@ -44,7 +53,7 @@ define(['underscore', 'backbone'], function   (_,Backbone) {
 			}
 
 		},
-		addGlobalHandler: function(){
+		addGlobalHandler: function(app){
 			var _this = this;
 
 			_this.delegateGlobalEvents = function(){

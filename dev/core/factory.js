@@ -1,4 +1,5 @@
 define(['app','underscore', 'backbone','base/controller','base/model','base/view'], function   (app,_,Backbone,baseController,baseModel,baseView) {
+	return null;
 	/*var nodeView = function(view,options){
 		var _this = this;
 		var viewOptions = ['model', 'collection', 'el', 'id', 'attributes', 'className', 'tagName', 'events'];
