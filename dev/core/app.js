@@ -1,8 +1,11 @@
-define(['underscore', 'backbone'], function   (_,Backbone) {
+define(['underscore', 'backbone','factory','base/controller','base/model','base/view'], function   (_,Backbone,factory,baseController,baseModel,baseView) {
 	var app = function(req,res){
 		this.addGlobalHandler(this);
 		this.request = req;
 		this.response = res;
+		this.factory = factory(this);
+		//any property that is not a primitive and stores state must be initialized in the constructor
+		this.loadedControllers = {};
 	};
 	_.extend(app.prototype,{
 		test:0,
@@ -12,29 +15,33 @@ define(['underscore', 'backbone'], function   (_,Backbone) {
 			'view:rendered':'pendingViewsHandler'
 		},
 		pendingViewsHandler:function(view){
-			if(!view.options.noPending){
+			if(view && !view.options.noPending){
 				this.pendingViews--;
 			}
 			//console.log('reducing a view')
 			//not sure if I should put under if statement
 			//if there are no pending views we can
-			if(this.pendingViews===0){
-				this.res.end.call(this.res,$.html());
-				//console.log($.html());
-				//console.log('its ready to return');
+			if(this.pendingViews===0 && this.isNode){
+
+				this.server.response.end.call(this,this.$.html());
+				//todo:maybe I should just declare the router once and not in each request
+				//we need to clean up the handlers otherwise they will keep on adding routes on every request
+				Backbone.history.handlers = [];
 			}
 
 
 		},
-		loadedControllers:{},
 		dispatch:function(controllerPath,method,args){
+
 			var _this = this,
 				lc=_this.loadedControllers;
+			//we cant reuse the same controllers since they have an app objects specific to each request
 			if(lc[controllerPath]){
 				lc[controllerPath].run(method,args);
 				return;
 			}
-			require([controllerPath],function(controller){
+			require([controllerPath],function(controllerTemplate){
+				var controller = _this.factory.controller.create(controllerTemplate);
 				lc[controllerPath] = controller;
 				controller.run(method,args);
 			});
@@ -54,7 +61,8 @@ define(['underscore', 'backbone'], function   (_,Backbone) {
 
 		},
 		addGlobalHandler: function(app){
-			var _this = this;
+			var _this = this,
+				app=app || _this.app;//if we dont pass in the app context we assume that the current objects has it set (most likely only the app itself will pass in the app parameter)
 
 			_this.delegateGlobalEvents = function(){
 				_.each(_this.globalEvents,function(method,event){

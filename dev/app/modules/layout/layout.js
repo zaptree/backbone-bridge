@@ -1,6 +1,6 @@
-define(['app','underscore','factory','modules/layout/views/default'],function(app,_,factory,viewDefault){
+define(['underscore','modules/layout/views/default'],function(_,viewDefault){
 	//controllers should only be initialized once so we create them before hand
-	return factory.controller.create({
+	return {
 		globalEvents:{
 			'layout:render':'renderLayout'
 		},
@@ -22,7 +22,7 @@ define(['app','underscore','factory','modules/layout/views/default'],function(ap
 		},
 		default:function(options){
 
-			var view = factory.view.create(viewDefault, _.extend({
+			var view = this.app.factory.view.create(viewDefault, _.extend({
 					model:{testme:'hello'}
 				},options));
 
@@ -32,5 +32,5 @@ define(['app','underscore','factory','modules/layout/views/default'],function(ap
 		}
 
 
-	});
+	};
 });

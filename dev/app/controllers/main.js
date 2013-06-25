@@ -1,15 +1,16 @@
-define(['app','factory'
+define(['underscore'
 	//models
 	, 'models/home'
 	//views
 	, 'views/home'
-],function(app,factory
+],function(_
+		//models
 		, modelHome
 		//views
 		, viewHome
 	){
 	//controllers should only be initialized once so we create them before hand
-	return factory.controller.create({
+	return {
 		layout:'default',
 		globalEvents:{},
 		before:function(){
@@ -31,7 +32,10 @@ define(['app','factory'
 			 *
 			 */
 			//var model = factory.model.create()
-			var view = factory.view.create(viewHome,{model:{test:'OH YEAH!!!'}});
+
+
+			//this.app.pendingViewsHandler();
+			var view = this.app.factory.view.create(viewHome,{model:{test:'OH YEAH!!!'}});
 			//app.$document.append(view.$el);
 			//view.render();
 
@@ -48,5 +52,5 @@ define(['app','factory'
 		after:function(){
 			//console.log('the main controller after method runs');
 		}
-	});
+	};
 });

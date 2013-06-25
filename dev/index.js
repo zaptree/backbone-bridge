@@ -44,47 +44,60 @@ requirejs([
 	//,'bootstrap'
 ], function   (application,_,Backbone,routes,cheerio,tmplIndex) {
 
-console.log(application);
+
 
 	//I need to load all the templates
 
 
 	//Backbone.history.start({silent: true});
 
-	//Backbone.history.loadUrl('home/whatever');
+	//Backbone.history.loadUrl('home/whatever');req
 	//Backbone.history.loadUrl('home');
 
 	var connectApp = connect()
 		.use(connect.logger('dev'))
 		.use(connect.static('public'))
 		.use(function(req, res){
-
-			var app = new application();
+			//res.shouldKeepAlive=false;
+			var url = req.url;
+			var app = new application(),
+				$ = cheerio.load(tmplIndex);
 
 			app.isNode=true;
+			app.server = {
+				response: res,
+				request:req
+			};
+			//todo:I will probably have to clean up all controllers views models the app object and so on, trigger a cleanup
+			//todo:make sure backbone events dont keep adding handlers and never removing between requests!!!!!
+
+			//todo:I need to make sure that when there are no views at all that I still call res.end();(maybe at controller after or something)
+
+			app.$ = $;
+			//app.test++;
+			//res.end(app.test + ' count');return;
+
+			//todo:I don't think this is safe since it will be shared between request if a view is created after an async operation
+			//Backbone.$ = $;
+			app.$document = $('#layout');
+
+			var router = Backbone.Router.extend({
+				routes:routes
+			});
+			//todo: I think backbone saves routers so we need to clean it up at the end of every request or find some solution
+			app.router = new router();
+			//I can use this alternatively
+			app.router.on('route',function(method,args){
+				var url = req.url;
+				var parts = method.split('.');
+				app.dispatch(parts[0],parts[1],args);
+			});
+			Backbone.history.loadUrl('home');
 
 
+			//app.req = req;
 
-			app.$ = cheerio.load(tmplIndex);
-			app.test++;
-			res.end(app.test + ' count');return;
-
-			//todo:I don't think this is safe since it will be shared between request
-//			Backbone.$ = $;
-//			app.$document = $('#layout');
-//
-//			var router = Backbone.Router.extend({
-//				routes:routes
-//			});
-//			var Router = new router();
-//			//I can use this alternatively
-//			Router.on('route',function(method,args){
-//				var parts = method.split('.');
-//				app.dispatch(parts[0],parts[1],args);
-//			});
-//			Backbone.history.loadUrl('home');
-
-			app.res = res;
+			//app.pendingViewsHandler();
 			//res.end('hello world\n');
 		})
 		.listen(3000);
