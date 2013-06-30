@@ -1,0 +1,7 @@
+{
+  "name": "node-backbone-test-api",
+  "version": "0.0.1",
+  "devDependencies": {
+    "connect": "~2.7.10"
+  }
+}

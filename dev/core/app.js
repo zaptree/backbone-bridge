@@ -12,21 +12,28 @@ define(['underscore', 'backbone','factory','base/controller','base/model','base/
 		isNode:false,
 		pendingViews:0,
 		globalEvents:{
-			'view:rendered':'pendingViewsHandler'
+			'view:rendered':'pendingViewsHandler',
+			'shutdown':'_shutdown'
 		},
 		pendingViewsHandler:function(view){
+			var _this = this;
 			if(view && !view.options.noPending){
-				this.pendingViews--;
+				_this.pendingViews--;
 			}
 			//console.log('reducing a view')
 			//not sure if I should put under if statement
 			//if there are no pending views we can
-			if(this.pendingViews===0 && this.isNode){
+			if(_this.pendingViews===0 && _this.isNode){
 
-				this.server.response.end.call(this,this.$.html());
-				//todo:maybe I should just declare the router once and not in each request
+				_this.server.response.end.call(_this,_this.$.html());
+
 				//we need to clean up the handlers otherwise they will keep on adding routes on every request
 				Backbone.history.handlers = [];
+				_this.router.off();//remove even binds on the router
+				_this.trigger('shutdown');
+
+
+
 			}
 
 
@@ -73,6 +80,12 @@ define(['underscore', 'backbone','factory','base/controller','base/model','base/
 				_this.stopListening(app);
 			};
 			_this.delegateGlobalEvents();
+		},
+		_shutdown:function(){
+			var _this= this;
+			_this.off();
+			_this.stopListening();
+			_this.undelegateGlobalEvents();//remove all global events (stopListening will do that already
 		}
 
 	},Backbone.Events);

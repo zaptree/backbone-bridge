@@ -30,7 +30,8 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 		view:{
 			async:async,
 			globalEvents:{
-				'cleanUp':'_close'
+				'cleanUp':'_close',
+				'shutdown':'_shutdown'
 			},
 			initialize:function(options){
 				var _this = this;
@@ -48,7 +49,7 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 					//TODO:I dont like what I am doing here, unbinding and binding again
 					_this.stopListening(_this.model,'change',_this.onModelChange);
 					_this.listenTo(_this.model,'change',_this.onModelChange);
-					if(_this.model.attributes){
+					if(_this.model.attributes && _.keys(_this.model.attributes).length > 0){
 						_this._render(options);
 					}else if(!_this.options.noFetch){
 						_this.model.fetch();
@@ -67,7 +68,7 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 
 				if(template){
 					_this.app.loadTemplate(template,function(tmpl){
-						_this.$el.append(_.template(tmpl,data));
+						_this.$el.append(_.template(tmpl,data,{variable: 'data'}));
 						done();
 					});
 				}else{
@@ -109,25 +110,78 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 			afterRender:function(){
 				//this.async()();
 			},
+			/**
+			 * The _close event gets called every time the global cleanUp function gets called.
+			 * (usually on every request in the front end)
+			 * @private
+			 */
 			_close:function(){
+				var _this=this;
 				//_this.remove();
 				_this.off();//remove any callbacks that where listening to view events
-				_this.stopListening();//stop listening to any other events
+				_this.remove();
+				//_this.stopListening();//stop listening to any other events
 				_this.undelegateEvents();//remove all the events
 				_this.undelegateGlobalEvents();//remove all global events (stopListening will do that already
+				_this.close();
 			},
 
-			close:function(){ }
+			close:function(){ },
+			/**
+			 * The shutdown function gets called when you want to close the whole app
+			 * (usually the end of a request in node)
+			 * @private
+			 */
+			_shutdown:function(){
+				var _this=this;
+				_this.close();
+				_this.shutdown();
+			},
+			shutdown:function(){}
 		},
 		model:{
 			async:async,
-			globalEvents:{ }
+			globalEvents:{
+				'shutdown':'_shutdown'
+			},
+			/**
+			 * The shutdown function gets called when you want to close the whole app
+			 * (usually the end of a request in node)
+			 * @private
+			 */
+			_shutdown:function(){
+				var _this = this;
+				_this.off();
+				_this.stopListening();
+				_this.undelegateGlobalEvents();//remove all global events (stopListening will do that already
+				_this.shutdown();
+			},
+			shutdown:function(){}
 		},
 		collection:{
-
+			async:async,
+			globalEvents:{
+				'shutdown':'_shutdown'
+			},
+			/**
+			 * The shutdown function gets called when you want to close the whole app
+			 * (usually the end of a request in node)
+			 * @private
+			 */
+			_shutdown:function(){
+				var _this = this;
+				_this.off();
+				_this.stopListening();
+				_this.undelegateGlobalEvents();//remove all global events (stopListening will do that already
+				_this.shutdown();
+			},
+			shutdown:function(){}
 		},
 		controller:{
 			async:async,
+			globalEvents:{
+				'shutdown':'_shutdown'
+			},
 			//this is the default method to call on the controller so that it uses
 			//the lifecycle. This should be used by the dispatch method
 			run:function(method,args){
@@ -146,13 +200,28 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 			after:function(){},
 			render:function(view,layout,reRenderLayout){
 				var _this = this;
+				//todo:there is a problem here because I append the view after the layout has rendered, I need a smart way to handle view rendering when they load out of order
 				//TODO:I need to find a better way to call the renderLayout (maybe add it to _this.app.js?)
+				//todo:the onrender is not firing on the front end for some reason
 				_this.app.dispatch('modules/layout/layout','renderLayout',['default',{'onRender':function(){
 					_this.app.$document.append(this.$el);
 					_this.app.$('#content').html(view.$el);
 				}}]);
 				view.render();
-			}
+			},
+			/**
+			 * The shutdown function gets called when you want to close the whole app
+			 * (usually the end of a request in node)
+			 * @private
+			 */
+			_shutdown:function(){
+				var _this = this;
+				_this.off();
+				_this.stopListening();
+				_this.undelegateGlobalEvents();//remove all global events (stopListening will do that already
+				_this.shutdown();
+			},
+			shutdown:function(){}
 
 
 		}

@@ -1,14 +1,20 @@
 var requirejs = require('./app/vendors/r.js');
 var connect = require('connect');
-//var cheerio
-//var $  = require('cheerio');
-//$('ul', '<ul id="fruits"></ul>');
-//GLOBAL.$ = require('cheerio').load('<div id="body"></div>');
-
-//GLOBAL.$ = require('jQuery');
-
+var request = require('request');
+var memwatch = require('memwatch');
+var hd = new memwatch.HeapDiff();
 //var _ = require('./app/vendors/underscore.js');
-//var Backbone = require('./app/vendors/backbone.js');
+memwatch.on('leak', function(info) {
+	//console.log(info);
+	var diff = hd.end();
+	//console.log(diff);
+	console.log(diff.after.size);
+	hd = new memwatch.HeapDiff();
+
+});
+memwatch.on('stats', function(stats) {
+	//console.log(stats);
+});
 GLOBAL.debug = function(msg){
 	console.log(msg)
 };
@@ -37,15 +43,44 @@ requirejs.config({
 	nodeRequire: require
 });
 
-//todo:modules get loaded only once I need to make a new instance of each controller/app/view whatever otherwise it wont work
-//with multiple requests
+
 requirejs([
-	'app','underscore', 'backbone','config/routes','cheerio','text!../index.html'
+	'app','underscore', 'backbone','config/routes','config/settings','cheerio','text!../index.html'
 	//,'bootstrap'
-], function   (application,_,Backbone,routes,cheerio,tmplIndex) {
+], function   (application,_,Backbone,routes,settings,cheerio,tmplIndex) {
 
 
+	Backbone.ajax = function(options) {
+/*		var options = {
+			//success:null,
+			dataType:null,
+			//url:null,
+			//contentType:null,
+			data:null,
+			type:null,
+			emulateJSON:null,
+			processData:null
+		}*/
+		request({
+			url:settings.apiBaseUrl+options.url,
+			headers:options.contentType ? {'content-type':options.contentType} : {},
+			form:options.data,
+			method:options.type,
+			proxy:settings.requestProxxy
 
+		},function (error, response, body) {
+			//console.log(body);
+			if(error){
+				//todo:handle errors (options.error)
+				console.log('There was an error getting the request')
+			}
+			options.success(JSON.parse(body),response.statusText);
+		})
+
+		return null;
+
+		//return Backbone.$.ajax.apply(Backbone.$, arguments);
+	};
 	//I need to load all the templates
 
 
@@ -54,14 +89,62 @@ requirejs([
 	//Backbone.history.loadUrl('home/whatever');req
 	//Backbone.history.loadUrl('home');
 
-	var connectApp = connect()
+	var server = connect()
 		.use(connect.logger('dev'))
-		.use(connect.static('public'))
-		.use(function(req, res){
+		.use(connect.static('public'));
+	if(settings.mode==='dev'){
+		server.use('/app',connect.static('app'))
+			.use('/core',connect.static('core'))
+	}
+	if(settings.clientApiProxxy){
+		server.use(settings.clientApiProxxy,function(req,res){
+			var url = settings.clientApiProxxy+req.url,
+				data=[
+					{
+						id:1,
+						title:'The weather is going to be great',
+						author:'John'
+					},
+					{
+						id:2,
+						title:'Stocks are on the rise',
+						author:'Peter'
+					},
+					{
+						id:3,
+						title:'World cup qualifiers latest scores',
+						author:'Alex'
+					}
+				],
+				responseData={error:'no path was matched'};
+
+			if(url=='/api/posts'){
+				responseData=data;
+			}else if(url=='/api/posts/1'){
+				responseData = data[0];
+				responseData.text = "The latest satellite images tell us that the weather will be great so you can make plans to go to the beach."
+			}else if(url=='/api/posts/2'){
+				responseData = data[1];
+				responseData.text = "It looks like the stock market is yielding record profits for investors."
+			}else if(url=='/api/posts/3'){
+				responseData = data[2];
+				responseData.text = "Teams are battling out for a spot in the world cup qualifiers, stay tuned for the latest scores."
+
+			}
+			_.delay(function(){
+				res.writeHead(200, { 'Content-Type': 'application/json' });
+				//console.log(JSON.stringify(responseData))
+				res.write(JSON.stringify(responseData));
+				res.end();
+			},1000);
+
+		});
+	}
+	server.use(function(req, res){
 			//res.shouldKeepAlive=false;
 			var url = req.url;
-			var app = new application(),
-				$ = cheerio.load(tmplIndex);
+			var $ = cheerio.load(tmplIndex),
+				app = new application();
 
 			app.isNode=true;
 			app.server = {
@@ -88,11 +171,10 @@ requirejs([
 			app.router = new router();
 			//I can use this alternatively
 			app.router.on('route',function(method,args){
-				var url = req.url;
 				var parts = method.split('.');
 				app.dispatch(parts[0],parts[1],args);
 			});
-			Backbone.history.loadUrl('home');
+			Backbone.history.loadUrl(url);
 
 
 			//app.req = req;

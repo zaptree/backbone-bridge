@@ -1,4 +1,4 @@
 define({
-	'home':'controllers/main.index',
-	'home/:var1':'controllers/main.index'
+	'':'modules/blog/blog.index',
+	'posts/:id':'modules/blog/blog.read'
 });
