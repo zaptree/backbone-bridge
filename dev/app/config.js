@@ -35,7 +35,7 @@ requirejs.config({
 	}
 });
 requirejs([
-	'app','underscore', 'backbone','config/routes','config/settings','jquery'
+	'app','underscore', 'backbone','config/routes','config/settings','bootstrap','jquery'
 	//,'bootstrap'
 ], function   (application,_,Backbone,routes,settings) {
 	var app = new application();
@@ -52,7 +52,7 @@ requirejs([
 		var parts = method.split('.');
 		app.dispatch(parts[0],parts[1],args);
 	});
-	Backbone.history.start();
+	Backbone.history.start({pushState: true});
 
 
 });

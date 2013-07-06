@@ -1,0 +1,26 @@
+<div>
+	<a href="/">Home</a>
+	<hr>
+	<div id="content"></div>
+</div>
+<div>
+	<div>
+		<span>this</span>
+		<span>SHOULD not be connected</span>
+	</div>
+	<ul>
+		<% _.each(data,function(post){ %>
+		<li>
+			<a href="/posts/<%=post.id %>"><%=post.title %></a>
+		</li>
+		<% }); %>
+
+	</ul>
+	<h1>this is the header</h1>
+	<p>asdfasdf</p>
+</div>
+<div>
+	<h1><%=data.title %></h1>
+	<p><i>by:</i><%=data.author %></p>
+	<p><%=data.text %></p>
+</div>

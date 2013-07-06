@@ -116,14 +116,17 @@ requirejs([
 						author:'Alex'
 					}
 				],
-				responseData={error:'no path was matched'};
+				responseData={error:'no path was matched'},
+				wait=500;
 
 			if(url=='/api/posts'){
+				wait=0;
 				responseData=data;
 			}else if(url=='/api/posts/1'){
 				responseData = data[0];
 				responseData.text = "The latest satellite images tell us that the weather will be great so you can make plans to go to the beach."
 			}else if(url=='/api/posts/2'){
+				wait=1000;
 				responseData = data[1];
 				responseData.text = "It looks like the stock market is yielding record profits for investors."
 			}else if(url=='/api/posts/3'){
@@ -136,7 +139,7 @@ requirejs([
 				//console.log(JSON.stringify(responseData))
 				res.write(JSON.stringify(responseData));
 				res.end();
-			},1000);
+			},wait);
 
 		});
 	}

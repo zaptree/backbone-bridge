@@ -26,9 +26,19 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 		if(!_this._async){callback();}
 
 	}
+	function await(count,callback){
+		return function(overideCallback){
+			if(overideCallback){
+				callback = overideCallback;
+			}
+			count--;
+			if(count===0){
+				callback();
+			}
+		}
+	}
 	var coreTemplates = {
 		view:{
-			async:async,
 			globalEvents:{
 				'cleanUp':'_close',
 				'shutdown':'_shutdown'
@@ -38,19 +48,19 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 				//options.template && (_this.template = options.template);
 
 			},
-			loadData:function(options){
+			loadData:function(){
 				var _this = this;
 				if(!_this.model || _.isUndefined(_this.model.attributes)){
 					_this.model = this.app.factory.model.create({},_this.model);
 					//we dont need to bind to the model since we just passed a data object to be rendered
-					_this._render(options);
+					_this._render();
 				}else{
 					//make sure we are not already listening
 					//TODO:I dont like what I am doing here, unbinding and binding again
 					_this.stopListening(_this.model,'change',_this.onModelChange);
 					_this.listenTo(_this.model,'change',_this.onModelChange);
 					if(_this.model.attributes && _.keys(_this.model.attributes).length > 0){
-						_this._render(options);
+						_this._render();
 					}else if(!_this.options.noFetch){
 						_this.model.fetch();
 					}
@@ -64,13 +74,25 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 				var _this=this,
 					template = _this.options.template || _this.template,
 					data = _this.model.toJSON(),
-					done=_this.async();
+					templates = (!_this.app.isNode && window.JST) ? JST : this.app.loadedTemplates;
 
 				if(template){
-					_this.app.loadTemplate(template,function(tmpl){
-						_this.$el.append(_.template(tmpl,data,{variable: 'data'}));
-						done();
-					});
+					if(templates[template]){
+						_this.$el.html(templates[template](data));
+					}else{
+						var done=_this.async();
+						_this.app.loadTemplate(template,function(tmpl){
+							/*_.templateSettings = {
+								variable: 'data'
+							};*/
+							templates[template] = _.template(tmpl,null,{variable: 'data'});
+							var html = templates[template](data);
+							_this.$el.html(html);
+							//_this.$el.append(_.template(tmpl,data,{variable: 'data'}));
+							done();
+						});
+					}
+
 				}else{
 					debug('DEBUG:Missing Template');
 				}
@@ -80,9 +102,8 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 			 * I need to rethink the name of this since it is used in onModelChange
 			 * @private
 			 */
-			_render:function(options){
+			_render:function(){
 				var _this=this;
-				options = options || {};
 				//I should make the async take an array of methods to do in a row
 				_this.async.call(_this,_this.beforeRender,function(){
 					_this.async.call(_this,_this.renderTemplate,function(){
@@ -92,19 +113,15 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 							if(_.isFunction(_this.options.onRender)){
 								_this.options.onRender.call(_this);
 							}
-							if(_.isFunction(options.onRender)){
-								_this.options.onRender.call(_this);
-							}
 							//this must be last if we want the previous callbacks to run before the app ends
 							_this.app.trigger('view:rendered',_this);
 						});
 					});
 				});
 			},
-			render:function(options){
+			render:function(){
 				var _this=this;
-
-				_this.loadData(options);
+				_this.loadData();
 				//_this._render(options);
 			},
 			afterRender:function(){
@@ -140,7 +157,6 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 			shutdown:function(){}
 		},
 		model:{
-			async:async,
 			globalEvents:{
 				'shutdown':'_shutdown'
 			},
@@ -159,7 +175,6 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 			shutdown:function(){}
 		},
 		collection:{
-			async:async,
 			globalEvents:{
 				'shutdown':'_shutdown'
 			},
@@ -178,7 +193,6 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 			shutdown:function(){}
 		},
 		controller:{
-			async:async,
 			globalEvents:{
 				'shutdown':'_shutdown'
 			},
@@ -199,14 +213,27 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 			before:function(){},
 			after:function(){},
 			render:function(view,layout,reRenderLayout){
-				var _this = this;
-				//todo:there is a problem here because I append the view after the layout has rendered, I need a smart way to handle view rendering when they load out of order
+				this.app.renderId++;//we use this to avoid out of sync views being rendered
+				var _this = this,
+					done = await(2),
+					renderId=this.app.renderId;
+				layout = layout || 'default';
 				//TODO:I need to find a better way to call the renderLayout (maybe add it to _this.app.js?)
-				//todo:the onrender is not firing on the front end for some reason
-				_this.app.dispatch('modules/layout/layout','renderLayout',['default',{'onRender':function(){
-					_this.app.$document.append(this.$el);
-					_this.app.$('#content').html(view.$el);
+				_this.app.dispatch('modules/layout/layout','renderLayout',[layout,{'onRender':function(){
+					var $this = this;
+					done(function(){
+						if(_this.app.renderId==renderId){
+							_this.app.$document.html($this.$el);
+							_this.app.$('#content').html(view.$el);
+						}
+					});
 				}}]);
+
+				var onRender = view.options.onRender;
+				view.options.onRender = function(){
+					onRender && onRender();
+					done();
+				};
 				view.render();
 			},
 			/**
@@ -252,6 +279,8 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 			obj.core = core;
 			obj.base = base;
 			obj.app = app;
+			obj.async = async;
+			obj.await = await;
 			//merge globalEvents and events from all three
 			obj.globalEvents = _.extend({},core.globalEvents || {},base.globalEvents || {},objTemplate.globalEvents || {});
 			//app.addGlobalHandler.call(obj); //

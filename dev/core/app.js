@@ -6,11 +6,12 @@ define(['underscore', 'backbone','factory','base/controller','base/model','base/
 		this.factory = factory(this);
 		//any property that is not a primitive and stores state must be initialized in the constructor
 		this.loadedControllers = {};
+		this.loadedTemplates = {};
 	};
 	_.extend(app.prototype,{
-		test:0,
 		isNode:false,
 		pendingViews:0,
+		renderId:0,
 		globalEvents:{
 			'view:rendered':'pendingViewsHandler',
 			'shutdown':'_shutdown'
@@ -63,7 +64,9 @@ define(['underscore', 'backbone','factory','base/controller','base/model','base/
 				});
 
 			}else{
-
+				$.get('/app/'+template+'.html',function(html,status){
+					callback && callback(html);
+				});
 			}
 
 		},

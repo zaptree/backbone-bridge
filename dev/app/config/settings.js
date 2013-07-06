@@ -3,7 +3,7 @@ define({
 	mode:'dev',
 
 	//the base url of your api
-	apiBaseUrl:'http://127.0.0.1:8080',
+	apiBaseUrl:'http://127.0.0.1:3000',
 
 	//if you need to proxxy your requests for debugging (i.e. fiddler put http://127.0.0.1:8888)
 	requestProxxy:'http://127.0.0.1:8888',

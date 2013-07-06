@@ -13,7 +13,10 @@ define(['underscore','modules/layout/views/default'],function(_,viewDefault){
 				_this.cv && _this.cv.close();
 				//set _this.cv to the new view that was/will be rendered
 				_this.cv = _this[layout](options);
+				_this.cl = layout;
 
+			}else if(options.onRender){
+				options.onRender();
 			}
 
 

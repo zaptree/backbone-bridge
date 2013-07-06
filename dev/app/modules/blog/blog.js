@@ -1,12 +1,12 @@
 define(['underscore'
 	//models
-	, 'models/home'
+	//collections
 	//views
 	, 'modules/blog/views/index'
 	, 'modules/blog/views/read'
 ],function(_
 		//models
-		, modelHome
+		//collections
 		//views
 		, viewBlogIndex
 		, viewBlogRead
@@ -19,7 +19,7 @@ define(['underscore'
 			//console.log('the main controller before method runs');
 		},
 		index:function(){
-
+			this.shambalala = 'hello';
 
 			var model = this.app.factory.model.create({
 				url:'/api/posts'
