@@ -2,10 +2,17 @@
 <html lang="en-US">
 <head>
 	<meta charset="UTF-8">
-	<title>Node Backbone</title>
-	<script type="text/javascript" src="/app/vendors/require.js" data-main="/app/config"></script>
-	<!--<script type="text/javascript" src="/js/application.js"></script>-->
-	<script type="text/javascript" src="/js/templates.js"></script>
+	<title>Node Backbone </title>
+
+	<% if(data.mode=='dev'){ %>
+		<script type="text/javascript" src="/app/vendors/require.js" data-main="/app/config"></script>
+	<% }else if(data.mode=='debug'){ %>
+		<script type="text/javascript" src="/js/application.min.js"></script>
+		<script type="text/javascript" src="/js/templates.js"></script>
+	<% }else{ %>
+		<script type="text/javascript" src="/js/application.min.js"></script>
+	<% } %>
+
 </head>
 <body>
 	<div id="layout"></div>

@@ -61,12 +61,14 @@ requirejs([
 			emulateJSON:null,
 			processData:null
 		}*/
+		var url = settings.apiBaseUrl;
+
 		request({
-			url:settings.apiBaseUrl+options.url,
+			url:settings.apiBaseUrl+(options.url.indexOf(settings.clientApiProxyPath) === 0 ? options.url.replace(settings.clientApiProxyPath,'') : options.url),
 			headers:options.contentType ? {'content-type':options.contentType} : {},
 			form:options.data,
 			method:options.type,
-			proxy:settings.requestProxxy
+			proxy:settings.requestProxy
 
 		},function (error, response, body) {
 			//console.log(body);
@@ -74,8 +76,11 @@ requirejs([
 				//todo:handle errors (options.error)
 				console.log('There was an error getting the request')
 			}
-			options.success(JSON.parse(body),response.statusText);
-		})
+			if(response.statusCode<300){
+				options.success(JSON.parse(body),response.statusText);
+			}
+
+		});
 
 		return null;
 
@@ -96,9 +101,37 @@ requirejs([
 		server.use('/app',connect.static('app'))
 			.use('/core',connect.static('core'))
 	}
-	if(settings.clientApiProxxy){
-		server.use(settings.clientApiProxxy,function(req,res){
-			var url = settings.clientApiProxxy+req.url,
+	if(settings.clientApiProxyPath){
+		server.use(settings.clientApiProxyPath,function(req,res){
+			//req.pipe(request[req.method](url))
+			req.pipe(request({
+				url:settings.apiBaseUrl+(req.url.indexOf(settings.clientApiProxyPathPath) === 0 ? req.url.replace(settings.clientApiProxyPathPath,'') : req.url),
+
+				//method:req.method,
+				//headers:req.headers,
+
+				proxy:settings.requestProxy
+			})).pipe(res);
+			/**/
+			/*request({
+				url:settings.apiBaseUrl+(req.url.indexOf(settings.clientApiProxyPathPath) === 0 ? req.url.replace(settings.clientApiProxyPathPath,'') : req.url),
+				headers:req.headers,
+				form:options.data,
+				method:req.method,
+				proxy:settings.requestProxy
+
+			},function (error, response, body) {
+				//console.log(body);
+				if(error){
+					//todo:handle errors (options.error)
+					console.log('There was an error getting the request')
+				}
+				if(response.statusCode<300){
+					options.success(JSON.parse(body),response.statusText);
+				}
+
+			});*/
+			/*var url = settings.clientApiProxyPath+req.url,
 				data=[
 					{
 						id:1,
@@ -139,53 +172,54 @@ requirejs([
 				//console.log(JSON.stringify(responseData))
 				res.write(JSON.stringify(responseData));
 				res.end();
-			},wait);
+			},wait);*/
 
 		});
 	}
 	server.use(function(req, res){
-			//res.shouldKeepAlive=false;
-			var url = req.url;
-			var $ = cheerio.load(tmplIndex),
-				app = new application();
 
-			app.isNode=true;
-			app.server = {
-				response: res,
-				request:req
-			};
-			//todo:I will probably have to clean up all controllers views models the app object and so on, trigger a cleanup
-			//todo:make sure backbone events dont keep adding handlers and never removing between requests!!!!!
+		//res.shouldKeepAlive=false;
+		var url = req.url;
+		var $ = cheerio.load(_.template(tmplIndex,settings,{variable: 'data'})),
+			app = new application();
 
-			//todo:I need to make sure that when there are no views at all that I still call res.end();(maybe at controller after or something)
+		app.isNode=true;
+		app.server = {
+			response: res,
+			request:req
+		};
+		//todo:I will probably have to clean up all controllers views models the app object and so on, trigger a cleanup
+		//todo:make sure backbone events dont keep adding handlers and never removing between requests!!!!!
 
-			app.$ = $;
-			//app.test++;
-			//res.end(app.test + ' count');return;
+		//todo:I need to make sure that when there are no views at all that I still call res.end();(maybe at controller after or something)
 
-			//todo:I don't think this is safe since it will be shared between request if a view is created after an async operation
-			//Backbone.$ = $;
-			app.$document = $('#layout');
+		app.$ = $;
+		//app.test++;
+		//res.end(app.test + ' count');return;
 
-			var router = Backbone.Router.extend({
-				routes:routes
-			});
-			//todo: I think backbone saves routers so we need to clean it up at the end of every request or find some solution
-			app.router = new router();
-			//I can use this alternatively
-			app.router.on('route',function(method,args){
-				var parts = method.split('.');
-				app.dispatch(parts[0],parts[1],args);
-			});
-			Backbone.history.loadUrl(url);
+		//todo:I don't think this is safe since it will be shared between request if a view is created after an async operation
+		//Backbone.$ = $;
+		app.$document = $('#layout');
+
+		var router = Backbone.Router.extend({
+			routes:routes
+		});
+		//todo: I think backbone saves routers so we need to clean it up at the end of every request or find some solution
+		app.router = new router();
+		//I can use this alternatively
+		app.router.on('route',function(method,args){
+			var parts = method.split('.');
+			app.dispatch(parts[0],parts[1],args);
+		});
+		Backbone.history.loadUrl(url);
 
 
-			//app.req = req;
+		//app.req = req;
 
-			//app.pendingViewsHandler();
-			//res.end('hello world\n');
-		})
-		.listen(3000);
+		//app.pendingViewsHandler();
+		//res.end('hello world\n');
+	})
+	.listen(3000);
 });
 
 

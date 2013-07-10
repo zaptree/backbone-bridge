@@ -48,6 +48,45 @@ module.exports = function (grunt) {
 				}
 			}
 		},
+		'closure-compiler': {
+			/*application: {
+				closurePath: 'bin/google-closure',
+				js: ['public/js/application.js'],
+				jsOutputFile: 'public/js/application.min.js',
+				maxBuffer: 500,
+				options: {
+					language_in: 'ECMASCRIPT5_STRICT',
+					compilation_level: 'SIMPLE_OPTIMIZATIONS'
+
+				}
+			},
+			templates: {
+				closurePath: 'bin/google-closure',
+				js: 'public/js/templates.js',
+				jsOutputFile: 'public/js/templates.min.js',
+				maxBuffer: 500,
+				options: {
+					language_in: 'ECMASCRIPT5_STRICT',
+					compilation_level: 'SIMPLE_OPTIMIZATIONS'
+
+				}
+			},*/
+			full: {
+				closurePath: 'bin/google-closure',
+				js: ['public/js/application.js','public/js/templates.js'],
+				jsOutputFile: 'public/js/application.min.js',
+				maxBuffer: 500,
+				//reportFile:'logs/closure/application.min.js.report.txt',
+				noreport:true,
+				options: {
+					language_in: 'ECMASCRIPT5_STRICT',
+					compilation_level: 'SIMPLE_OPTIMIZATIONS'
+
+
+
+				}
+			}
+		}/*,
 		uglify: {
 
 			options: {
@@ -56,19 +95,20 @@ module.exports = function (grunt) {
 			},
 			production: {
 				files: {
-					'public/js/application.js': ['public/js/application.js'],
-					'public/js/templates.min.js': ['public/js/templates.js']
+					'public/js/application.uglify.min.js': ['public/js/application.js'],
+					'public/js/templates.uglify.min.js': ['public/js/templates.js']
 				}
 			}
-		}
+		}*/
 	});
 
 	// Load the plugin that provides the "uglify" task.
 	grunt.loadNpmTasks('grunt-requirejs');
 	grunt.loadNpmTasks('grunt-contrib-uglify');
 	grunt.loadNpmTasks('grunt-contrib-jst');
+	grunt.loadNpmTasks('grunt-closure-compiler');
 
 	// Default task(s).
-	grunt.registerTask('production', ['requirejs','jst','uglify:production']);
+	grunt.registerTask('production', ['requirejs','jst','closure-compiler:full']);
 
 };

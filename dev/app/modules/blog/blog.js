@@ -41,6 +41,15 @@ define(['underscore'
 			var view = this.app.factory.view.create(viewBlogRead,{model:model});
 			this.render(view);
 		},
+		create:function(){
+
+		},
+		update:function(id){
+
+		},
+		delete:function(id){
+
+		},
 		after:function(){
 			//console.log('the main controller after method runs');
 		}
