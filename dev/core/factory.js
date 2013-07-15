@@ -38,10 +38,40 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 		}
 	}
 	var coreTemplates = {
+		//all factory objects inherit from this
+		base:{
+			globalEvents:{
+				'shutdown':'shutdown'
+			},
+			/**
+			 * Default close implementation unbinds all events
+			 */
+			close:function(){
+				var _this = this;
+				_this.off();
+				_this.stopListening();
+				_this.undelegateGlobalEvents();//remove all global events (stopListening will do that already
+			},
+			onCLose:function(){ },
+			/**
+			 * The shutdown function gets called when you want to close the whole app, all it is is a wrapper for
+			 * close plus adding a onShutdown function call for any custom shutdown code your object needs
+			 * (usually the end of a request in node)
+			 * @private
+			 */
+			shutdown:function(){
+				var _this=this;
+				_this.close();
+				_this.onShutdown();
+				//debug(this.type+' shutting down');
+			},
+
+			onShutdown:function(){}
+		},
 		view:{
 			globalEvents:{
-				'cleanUp':'_close',
-				'shutdown':'_shutdown'
+				'cleanUp':'close',
+				'shutdown':'shutdown'
 			},
 			initialize:function(options){
 				var _this = this;
@@ -50,7 +80,18 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 			},
 			loadData:function(){
 				var _this = this;
-				if(!_this.model || _.isUndefined(_this.model.attributes)){
+				if(this.collection){
+					//TODO:I dont like what I am doing here, unbinding and binding again
+					_this.stopListening(_this.collection,'reset',_this.onModelChange);
+					_this.listenTo(_this.collection,'reset',_this.onModelChange);
+
+					//todo:I think it is always an array even if empty so the first check is not needed
+					if((this.collection.models && this.collection.models.length)  || _this.options.noFetch){
+						_this._render();
+					}else{
+						_this.collection.fetch();
+					}
+				}else if(!_this.model || _.isUndefined(_this.model.attributes)){
 					_this.model = this.app.factory.model.create({},_this.model);
 					//we dont need to bind to the model since we just passed a data object to be rendered
 					_this._render();
@@ -59,9 +100,9 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 					//TODO:I dont like what I am doing here, unbinding and binding again
 					_this.stopListening(_this.model,'change',_this.onModelChange);
 					_this.listenTo(_this.model,'change',_this.onModelChange);
-					if(_this.model.attributes && _.keys(_this.model.attributes).length > 0){
+					if((_this.model.attributes && _.keys(_this.model.attributes).length > 0) || _this.options.noFetch){
 						_this._render();
-					}else if(!_this.options.noFetch){
+					}else{
 						_this.model.fetch();
 					}
 				}
@@ -72,8 +113,9 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 			renderTemplate:function(){
 				//console.log(this);
 				var _this=this,
+					model = _this.collection || _this.model,
 					template = _this.options.template || _this.template,
-					data = _this.model.toJSON(),
+					data = model.toJSON(),
 					templates = (!_this.app.isNode && window.JST) ? JST : this.app.loadedTemplates;
 
 				if(template){
@@ -94,7 +136,9 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 					}
 
 				}else{
-					debug('DEBUG:Missing Template');
+					_this.app.error({
+						Error:new Error('No template was set')
+					});
 				}
 			},
 			beforeRender:function(){ },
@@ -132,70 +176,27 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 			 * (usually on every request in the front end)
 			 * @private
 			 */
-			_close:function(){
+			close:function(){
 				var _this=this;
 				//_this.remove();
 				_this.off();//remove any callbacks that where listening to view events
 				_this.remove();
-				//_this.stopListening();//stop listening to any other events
-				_this.undelegateEvents();//remove all the events
+				//_this.stopListening();//stop listening to any other events (remove does that already)
+				if(!_this.app.isNode){
+					_this.undelegateEvents();//remove all the events
+				}
 				_this.undelegateGlobalEvents();//remove all global events (stopListening will do that already
-				_this.close();
-			},
-
-			close:function(){ },
-			/**
-			 * The shutdown function gets called when you want to close the whole app
-			 * (usually the end of a request in node)
-			 * @private
-			 */
-			_shutdown:function(){
-				var _this=this;
-				_this.close();
-				_this.shutdown();
-			},
-			shutdown:function(){}
+				_this.onCLose();
+			}
 		},
 		model:{
 			globalEvents:{
-				'shutdown':'_shutdown'
-			},
-			/**
-			 * The shutdown function gets called when you want to close the whole app
-			 * (usually the end of a request in node)
-			 * @private
-			 */
-			_shutdown:function(){
-				var _this = this;
-				_this.off();
-				_this.stopListening();
-				_this.undelegateGlobalEvents();//remove all global events (stopListening will do that already
-				_this.shutdown();
-			},
-			shutdown:function(){}
+				'shutdown':'shutdown'
+			}
 		},
 		collection:{
-			globalEvents:{
-				'shutdown':'_shutdown'
-			},
-			/**
-			 * The shutdown function gets called when you want to close the whole app
-			 * (usually the end of a request in node)
-			 * @private
-			 */
-			_shutdown:function(){
-				var _this = this;
-				_this.off();
-				_this.stopListening();
-				_this.undelegateGlobalEvents();//remove all global events (stopListening will do that already
-				_this.shutdown();
-			},
-			shutdown:function(){}
 		},
 		controller:{
-			globalEvents:{
-				'shutdown':'_shutdown'
-			},
 			//this is the default method to call on the controller so that it uses
 			//the lifecycle. This should be used by the dispatch method
 			run:function(method,args){
@@ -235,21 +236,7 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 					done();
 				};
 				view.render();
-			},
-			/**
-			 * The shutdown function gets called when you want to close the whole app
-			 * (usually the end of a request in node)
-			 * @private
-			 */
-			_shutdown:function(){
-				var _this = this;
-				_this.off();
-				_this.stopListening();
-				_this.undelegateGlobalEvents();//remove all global events (stopListening will do that already
-				_this.shutdown();
-			},
-			shutdown:function(){}
-
+			}
 
 		}
 	};
@@ -272,17 +259,18 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 		 */
 		function create(type,objTemplate){
 			//console.log(coreTemplates);
+			//objTemplate = _.extend({},coreTemplates.base,baseTemplates[type]);
 			var core = coreTemplates[type],
 				base = baseTemplates[type],
-				obj = _.extend({},core,base,objTemplate);//for controllers I wanted to add Backbone.Events
-
+				obj = _.extend({},coreTemplates.base,core,base,objTemplate);//for controllers I wanted to add Backbone.Events
+			obj.type = type;
 			obj.core = core;
 			obj.base = base;
 			obj.app = app;
 			obj.async = async;
 			obj.await = await;
-			//merge globalEvents and events from all three
-			obj.globalEvents = _.extend({},core.globalEvents || {},base.globalEvents || {},objTemplate.globalEvents || {});
+			//merge globalEvents and events from all three (note that the core overwrites the core.base events if it is defined and not merged);
+			obj.globalEvents = _.extend({}, core.globalEvents || coreTemplates.base.globalEvents || {} ,base.globalEvents || {},objTemplate.globalEvents || {});
 			//app.addGlobalHandler.call(obj); //
 			return obj;
 		};
@@ -318,13 +306,35 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 					return viewInstance;
 				}
 			},
+			collection:{
+				create:function(collectionTemplate,models,options){
+					var collection = create('collection',collectionTemplate);
+					var collectionInstance = new (Backbone.Collection.extend(collection))(models,options || {});
+					app.addGlobalHandler.call(collectionInstance);
+					if(app.isNode){
+						collectionInstance.on('error',function(m,resp){
+							if(resp.Error){
+								app.error(resp);
+							}
+						});
+					}
+					return collectionInstance;
+				}
+			},
 			model:{
 				//IF I CHANGE SIGNATURE REMEMBER TO CHANGE VIEW ALSO!!!
 				create:function(modelTemplate,data,options){
 
 					var model = create('model',modelTemplate);
 					var modelInstance = new (Backbone.Model.extend(model))(data,options || {});
-					app.addGlobalHandler.call(modelInstance);
+					app.addGlobalHandler.call(modelInstance)
+					if(app.isNode){
+						modelInstance.on('error',function(m,resp){
+							if(resp.Error){
+								app.error(resp);
+							}
+						});
+					}
 					return modelInstance;
 				}
 			},

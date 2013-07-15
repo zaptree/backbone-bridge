@@ -26,18 +26,18 @@ define(['underscore', 'backbone','factory','base/controller','base/model','base/
 			//if there are no pending views we can
 			if(_this.pendingViews===0 && _this.isNode){
 
-				_this.server.response.end.call(_this,_this.$.html());
-
-				//we need to clean up the handlers otherwise they will keep on adding routes on every request
-				Backbone.history.handlers = [];
-				_this.router.off();//remove even binds on the router
-				_this.trigger('shutdown');
-
-
-
+				_this.server.response.end(_this.$.html());
+				_this.shutdown();
 			}
 
 
+		},
+		error:function(error){
+			var _this = this;
+
+			_this.server.response.end("<p><strong>"+error.Error.message+"</strong></p>"+"<pre>"+error.Error.stack+"</pre>");
+			//_this.server.response.end.call(_this,"There was an error");
+			this.shutdown();
 		},
 		dispatch:function(controllerPath,method,args){
 
@@ -83,6 +83,14 @@ define(['underscore', 'backbone','factory','base/controller','base/model','base/
 				_this.stopListening(app);
 			};
 			_this.delegateGlobalEvents();
+		},
+		shutdown:function(){
+			var _this = this;
+			//todo:Emptying handlers might not be ok if we call a route server side after a async operation, I need to rethink this... somehow remove only the handler in the current context? assign an id to it?
+			//we need to clean up the handlers otherwise they will keep on adding routes on every request
+			Backbone.history.handlers = [];
+			_this.router.off();//remove even binds on the router
+			_this.trigger('shutdown');
 		},
 		_shutdown:function(){
 			var _this= this;

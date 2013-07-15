@@ -73,12 +73,38 @@ requirejs([
 		},function (error, response, body) {
 			//console.log(body);
 			if(error){
-				//todo:handle errors (options.error)
-				console.log('There was an error getting the request')
+				var errorMsg = "There was an error fetching your request.";
+				//an extra check for users using a proxy to give them a better error solution
+				if(error.code==='ECONNREFUSED' && settings.requestProxy){
+					errorMsg += ' Your settings are configured to use a proxy ('+settings.requestProxy+'). If you are using a proxy such as Fiddler make sure it is working or disable using a proxy from the settings.';
+				}
+				options.error({
+					Error:new Error(errorMsg)
+				});
+				debug(errorMsg);
+			}else{
+				var data;
+				try{
+					data=JSON.parse(body)
+
+				}catch(err){
+					var errorMsg = "Error parsing response from request to api: "+err.message;
+					options.error({
+						Error:new Error(errorMsg)
+					});
+					debug(errorMsg);
+					return;
+				}
+				if(response.statusCode<300){
+					options.success(data,response.statusText);
+				}else{
+					options.error({
+						Error:new Error('The api request returned: ')
+					});
+				}
+
 			}
-			if(response.statusCode<300){
-				options.success(JSON.parse(body),response.statusText);
-			}
+
 
 		});
 
@@ -177,6 +203,10 @@ requirejs([
 		});
 	}
 	server.use(function(req, res){
+//		throw new Error('ssss');
+//		return;
+
+
 
 		//res.shouldKeepAlive=false;
 		var url = req.url;
@@ -219,6 +249,7 @@ requirejs([
 		//app.pendingViewsHandler();
 		//res.end('hello world\n');
 	})
+		.use(connect.errorHandler({ dumpExceptions: true }))
 	.listen(3000);
 });
 
