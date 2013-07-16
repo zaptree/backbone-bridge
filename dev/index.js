@@ -81,7 +81,6 @@ requirejs([
 				options.error({
 					Error:new Error(errorMsg)
 				});
-				debug(errorMsg);
 			}else{
 				var data;
 				try{
@@ -92,14 +91,13 @@ requirejs([
 					options.error({
 						Error:new Error(errorMsg)
 					});
-					debug(errorMsg);
 					return;
 				}
 				if(response.statusCode<300){
 					options.success(data,response.statusText);
 				}else{
 					options.error({
-						Error:new Error('The api request returned: ')
+						Error:new Error('The api request returned a status code of: '+response.statusCode)
 					});
 				}
 

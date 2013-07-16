@@ -19,8 +19,7 @@ define(['underscore'
 			//console.log('the main controller before method runs');
 		},
 		index:function(){
-			this.shambalala = 'hello';
-
+			//this.app.loadSync('modules/blog/views/index');
 			var model = this.app.factory.model.create({
 				url:'/api/posts'
 			});
@@ -29,7 +28,7 @@ define(['underscore'
 //					var hello = data;
 //				}
 //			});
-			var view = this.app.factory.view.create(viewBlogIndex,{model:model});
+			var view = this.app.factory.view.create('modules/blog/views/index',{model:model});
 
 
 			this.render(view);

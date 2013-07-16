@@ -283,6 +283,7 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 			 */
 			view:{
 				create:function(viewTemplate,options){
+					viewTemplate = app.loadSync(viewTemplate);
 					//we need to add the number of views pending so that node will know when all views have rendered so that
 					//it can return the response with the rendered views
 					if(!options.noPending){
@@ -308,6 +309,7 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 			},
 			collection:{
 				create:function(collectionTemplate,models,options){
+					collectionTemplate = app.loadSync(collectionTemplate);
 					var collection = create('collection',collectionTemplate);
 					var collectionInstance = new (Backbone.Collection.extend(collection))(models,options || {});
 					app.addGlobalHandler.call(collectionInstance);
@@ -324,6 +326,7 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 			model:{
 				//IF I CHANGE SIGNATURE REMEMBER TO CHANGE VIEW ALSO!!!
 				create:function(modelTemplate,data,options){
+					modelTemplate = app.loadSync(modelTemplate);
 
 					var model = create('model',modelTemplate);
 					var modelInstance = new (Backbone.Model.extend(model))(data,options || {});
@@ -341,6 +344,7 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 			controller:{
 
 				create:function(controllerTemplate){
+					controllerTemplate = app.loadSync(controllerTemplate);
 					var controller = create('controller',_.extend({},controllerTemplate,Backbone.Events));
 					app.addGlobalHandler.call(controller);
 					return controller;

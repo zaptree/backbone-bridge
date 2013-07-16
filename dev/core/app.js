@@ -32,12 +32,34 @@ define(['underscore', 'backbone','factory','base/controller','base/model','base/
 
 
 		},
+		/**
+		 * this function takes an object or a string and returns object or tries to load object from requirejs using
+		 * string. Basically it allows you to load an object synchronously if it was already loaded previously and
+		 * throw an error when it was not loaded
+		 * @param objTemplate (object or string path)
+		 */
+		loadSync:function(objTemplate){
+			if(_.isString(objTemplate)){
+				if(require.defined(objTemplate)){
+					return requirejs(objTemplate);
+				}else{
+					this.error({
+						Error:new Error("Module "+objTemplate+" had not been loaded. To load a module synchronously you must make sure it was already loaded as a dependency before hand.")
+					});
+				}
+			}
+			return objTemplate;
+		},
 		error:function(error){
 			var _this = this;
+			if(this.isNode){
+				_this.server.response.end("<p><strong>"+error.Error.message+"</strong></p>"+"<pre>"+error.Error.stack+"</pre>");
+				//_this.server.response.end.call(_this,"There was an error");
+				this.shutdown();
+			}else{
+				alert('ToDo: implement client side error handling. :'+error.Error.message);
+			}
 
-			_this.server.response.end("<p><strong>"+error.Error.message+"</strong></p>"+"<pre>"+error.Error.stack+"</pre>");
-			//_this.server.response.end.call(_this,"There was an error");
-			this.shutdown();
 		},
 		dispatch:function(controllerPath,method,args){
 
