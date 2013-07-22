@@ -1,0 +1,23 @@
+<div>
+	<h1>Create new Post</h1>
+	<% if (data.success){ %>
+	Succesfully updated
+	<% } %>
+	<form action="/api/posts/" method="POST" id="post-form">
+		<div class="input">
+			<label>Title:</label>
+			<input type="text" name="title" value="<%=data.title%>">
+		</div>
+		<div class="input">
+			<label>Author:</label>
+			<input type="text" name="user" value="<%=data.user%>">
+		</div>
+		<div class="input">
+			<label>Article:</label>
+			<textarea name="text" cols="50" rows="30"><%=data.text%></textarea>
+		</div>
+		<div>
+			<input type="submit" value="Update"/>
+		</div>
+	</form>
+</div>

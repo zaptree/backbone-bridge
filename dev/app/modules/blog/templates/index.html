@@ -3,14 +3,21 @@
 		<span>this</span>
 		<span>SHOULD not be connected</span>
 	</div>
-	<ul>
+	<div>
+		<a href="/posts/create">Create New Post</a>
+	</div>
+	<table>
 		<% _.each(data,function(post){ %>
-		<li>
-			<a href="/posts/<%=post.id %>"><%=post.title %></a>
-		</li>
+		<tr>
+			<td><a href="/posts/<%=post.id %>"><%=post.title %></a></td>
+			<td>
+				<a href="/posts/update/<%=post.id %>">Edit</a> |
+				<a href="/posts/delete/<%=post.id %>" data-id="<%=post.id %>" class="delete-post">Delete</a>
+			</td>
+		</tr>
 		<% }); %>
 
-	</ul>
+	</table>
 	<h1>this is the header</h1>
 	<p>asdfasdf</p>
 </div>

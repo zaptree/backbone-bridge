@@ -1,4 +1,4 @@
-define(['underscore', 'backbone','base/controller','base/model','base/view'], function   (_,Backbone,baseController,baseModel,baseView) {
+define(['underscore', 'backbone','base/controller','base/model','base/view','base/collection'], function   (_,Backbone,baseController,baseModel,baseView,baseCollection) {
 	//return null;
 	function async(method,args,callback){
 		var i = arguments.length,
@@ -79,17 +79,20 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 
 			},
 			loadData:function(){
-				var _this = this;
+				var _this = this,
+					fetch = this.options.fetch;
+					//fetch = _.isUndefined(this.options.fetch) ? true : this.options.fetch;
 				if(this.collection){
 					//TODO:I dont like what I am doing here, unbinding and binding again
 					_this.stopListening(_this.collection,'reset',_this.onModelChange);
 					_this.listenTo(_this.collection,'reset',_this.onModelChange);
 
 					//todo:I think it is always an array even if empty so the first check is not needed
-					if((this.collection.models && this.collection.models.length)  || _this.options.noFetch){
+					if((this.collection.models && this.collection.models.length && fetch !== true )  || fetch===false){
 						_this._render();
 					}else{
-						_this.collection.fetch();
+						//backbone collection no longer automatically reset
+						_this.collection.fetch({reset:true});
 					}
 				}else if(!_this.model || _.isUndefined(_this.model.attributes)){
 					_this.model = this.app.factory.model.create({},_this.model);
@@ -100,7 +103,7 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 					//TODO:I dont like what I am doing here, unbinding and binding again
 					_this.stopListening(_this.model,'change',_this.onModelChange);
 					_this.listenTo(_this.model,'change',_this.onModelChange);
-					if((_this.model.attributes && _.keys(_this.model.attributes).length > 0) || _this.options.noFetch){
+					if((_this.model.attributes && _.keys(_this.model.attributes).length > 0 && fetch !== true )  || fetch===false){
 						_this._render();
 					}else{
 						_this.model.fetch();
@@ -195,6 +198,9 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 			}
 		},
 		collection:{
+			globalEvents:{
+				'shutdown':'shutdown'
+			}
 		},
 		controller:{
 			//this is the default method to call on the controller so that it uses
@@ -232,7 +238,7 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 
 				var onRender = view.options.onRender;
 				view.options.onRender = function(){
-					onRender && onRender();
+					onRender && onRender.call(this);
 					done();
 				};
 				view.render();
@@ -246,10 +252,12 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 	 */
 	return function(app){
 		var baseTemplates = {
-			view:baseView,
-			model:baseModel,
-			controller:baseController
-		};
+				view:baseView,
+				model:baseModel,
+				collection:baseCollection,
+				controller:baseController
+			},
+			factory;
 
 
 		/**
@@ -276,13 +284,14 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 		};
 
 
-		return {
+		factory = {
 			/**
 			 * I can use the standard view but I need to override the _ensureElement && setElement methods so that it works
 			 * in node.js
 			 */
 			view:{
 				create:function(viewTemplate,options){
+					options = options || {};
 					viewTemplate = app.loadSync(viewTemplate);
 					//we need to add the number of views pending so that node will know when all views have rendered so that
 					//it can return the response with the rendered views
@@ -298,47 +307,66 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 					if(app.isNode){
 						view.events = null;
 					}
-
-					//we need to set the Backbone.$ every time there is a view being created otherwise Backbone.$
-					//might be the cheerio object from another request.
-					Backbone.$ = app.$;
-					var viewInstance = new (Backbone.View.extend(view))(options || {});
-					app.addGlobalHandler.call(viewInstance);
-					return viewInstance;
+					var viewClass = function(options){
+						//we need to set the Backbone.$ every time there is a view being created otherwise Backbone.$
+						//might be the cheerio object from another request.
+						Backbone.$ = app.$;
+						var viewInstance = new (Backbone.View.extend(view))(options || {});
+						app.addGlobalHandler.call(viewInstance);
+						_.extend(this,viewInstance);
+					};
+					return options.class ? viewClass : new viewClass(options);
 				}
 			},
 			collection:{
 				create:function(collectionTemplate,models,options){
+					options = options || {};
 					collectionTemplate = app.loadSync(collectionTemplate);
-					var collection = create('collection',collectionTemplate);
-					var collectionInstance = new (Backbone.Collection.extend(collection))(models,options || {});
-					app.addGlobalHandler.call(collectionInstance);
-					if(app.isNode){
-						collectionInstance.on('error',function(m,resp){
-							if(resp.Error){
-								app.error(resp);
-							}
-						});
+
+					var model = collectionTemplate.model;
+					if(model && !_.isFunction(model)){
+						collectionTemplate.model = factory.model.create(model,null,{class:true});
 					}
-					return collectionInstance;
+
+					var collection = create('collection',collectionTemplate),
+						collectionClass = function(data,options){
+							var collectionInstance = new (Backbone.Collection.extend(collection))(models,options || {});
+							app.addGlobalHandler.call(collectionInstance);
+							if(app.isNode){
+								collectionInstance.on('error',function(m,resp){
+									if(resp.Error){
+										app.error(resp);
+									}
+								});
+							}
+							_.extend(this,collectionInstance);
+						};
+
+					//return the class if options.class is true otherwise return a new instance
+					return options.class ? collectionClass : new collectionClass(models,options);
 				}
 			},
 			model:{
 				//IF I CHANGE SIGNATURE REMEMBER TO CHANGE VIEW ALSO!!!
-				create:function(modelTemplate,data,options){
+				create:function(modelTemplate,data,options,cache){
+					options = options || {};
 					modelTemplate = app.loadSync(modelTemplate);
 
-					var model = create('model',modelTemplate);
-					var modelInstance = new (Backbone.Model.extend(model))(data,options || {});
-					app.addGlobalHandler.call(modelInstance)
-					if(app.isNode){
-						modelInstance.on('error',function(m,resp){
-							if(resp.Error){
-								app.error(resp);
+					var model = create('model',modelTemplate),
+						modelClass = function(data,options){
+							var modelInstance = new (Backbone.Model.extend(model))(data,options || {});
+							app.addGlobalHandler.call(modelInstance);
+							if(app.isNode){
+								modelInstance.on('error',function(m,resp){
+									if(resp.Error){
+										app.error(resp);
+									}
+								});
 							}
-						});
-					}
-					return modelInstance;
+							_.extend(this,modelInstance);
+						};
+					//return the class if options.class is true otherwise return a new instance
+					return options.class ? modelClass : new modelClass(data,options);
 				}
 			},
 			controller:{
@@ -352,6 +380,7 @@ define(['underscore', 'backbone','base/controller','base/model','base/view'], fu
 				}
 			}
 		};
+		return factory;
 	}
 
 });

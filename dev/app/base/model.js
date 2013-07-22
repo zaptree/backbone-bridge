@@ -1,3 +1,3 @@
-define(['app'],function(app){
+define(['underscore'],function(_){
 	return {};
 });

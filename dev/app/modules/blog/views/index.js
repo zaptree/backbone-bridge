@@ -1,12 +1,24 @@
 define(['underscore'],function(_){
-
 	return {
-		events:{},
 		template:'modules/blog/templates/index',
-		afterRender:function(){
-			//console.log(this.model.toJSON().errors[0].message)
-			//console.log(this.model.toJSON());
+		globalEvents:{},
+		events:{
+			'click .delete-post':'delete'
 		},
-		globalEvents:{}
+
+		afterRender:function(){},
+		delete:function(e){
+			var $el=$(e.currentTarget),
+				id = $el.attr('data-id');
+
+			this.collection.get($(e.currentTarget).attr('data-id')).destroy({
+				success :function(model,data){
+					if(data.success){
+						$el.closest('tr').remove();
+					}
+				}
+			});
+			return false;
+		}
 	};
 });
