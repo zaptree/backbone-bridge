@@ -80,15 +80,18 @@ define(['underscore', 'backbone','base/controller','base/model','base/view','bas
 			},
 			loadData:function(){
 				var _this = this,
-					fetch = this.options.fetch;
+					fetch = _this.options.fetch;
 					//fetch = _.isUndefined(this.options.fetch) ? true : this.options.fetch;
-				if(this.collection){
+				if(_this.collection){
+					if(_.isString(_this.collection)){
+						_this.collection = _this.app.factory.collection.create(_this.collection);
+					}
 					//TODO:I dont like what I am doing here, unbinding and binding again
 					_this.stopListening(_this.collection,'reset',_this.onModelChange);
 					_this.listenTo(_this.collection,'reset',_this.onModelChange);
 
 					//todo:I think it is always an array even if empty so the first check is not needed
-					if((this.collection.models && this.collection.models.length && fetch !== true )  || fetch===false){
+					if((_this.collection.models && _this.collection.models.length && fetch !== true )  || fetch===false){
 						_this._render();
 					}else{
 						//backbone collection no longer automatically reset
@@ -99,6 +102,9 @@ define(['underscore', 'backbone','base/controller','base/model','base/view','bas
 					//we dont need to bind to the model since we just passed a data object to be rendered
 					_this._render();
 				}else{
+					if(_.isString(_this.model)){
+						_this.model = _this.app.factory.model.create(_this.model);
+					}
 					//make sure we are not already listening
 					//TODO:I dont like what I am doing here, unbinding and binding again
 					_this.stopListening(_this.model,'change',_this.onModelChange);
@@ -281,16 +287,42 @@ define(['underscore', 'backbone','base/controller','base/model','base/view','bas
 			obj.globalEvents = _.extend({}, core.globalEvents || coreTemplates.base.globalEvents || {} ,base.globalEvents || {},objTemplate.globalEvents || {});
 			//app.addGlobalHandler.call(obj); //
 			return obj;
-		};
+		}
+		function cacheObject(type,template,cache,instance){
+			var key;
+			//todo:clean this code up a bit
+			if(!cache){
+				return false;
+			}
+			if(_.isString(cache)){
+				key=cache;
+			}
+			if(cache===true){
+				if(_.isString(template)){
+					key=template;
+				}else if(template.cacheId){
+					key=template.cacheId;
+				}else{
+					app.error({
+						Error:new Error('You must define a cacheId')
+					});
+					return false;
+				}
+			}
+			factory.cache[type][key]=instance;
+
+		}
 
 
 		factory = {
+
 			/**
 			 * I can use the standard view but I need to override the _ensureElement && setElement methods so that it works
 			 * in node.js
 			 */
 			view:{
-				create:function(viewTemplate,options){
+				create:function(viewTemplate,options,cache){
+
 					options = options || {};
 					viewTemplate = app.loadSync(viewTemplate);
 					//we need to add the number of views pending so that node will know when all views have rendered so that
@@ -315,11 +347,26 @@ define(['underscore', 'backbone','base/controller','base/model','base/view','bas
 						app.addGlobalHandler.call(viewInstance);
 						_.extend(this,viewInstance);
 					};
-					return options.class ? viewClass : new viewClass(options);
+					if(options.class){
+						return viewClass;
+					}else{
+						var instance = new viewClass(options);
+						cacheObject('views',viewTemplate,cache,instance);
+						return instance;
+					}
+					//return options.class ? viewClass : new viewClass(options);
+				},
+				get:function(key){
+					return factory.cache.views[key];
+				},
+				destroy:function(key){
+					factory.cache.views[key].close();
+					factory.cache.views[key]=null;
 				}
 			},
 			collection:{
-				create:function(collectionTemplate,models,options){
+				create:function(collectionTemplate,models,options,cache){
+
 					options = options || {};
 					collectionTemplate = app.loadSync(collectionTemplate);
 
@@ -342,13 +389,29 @@ define(['underscore', 'backbone','base/controller','base/model','base/view','bas
 							_.extend(this,collectionInstance);
 						};
 
+					if(options.class){
+						return collectionClass;
+					}else{
+						var instance = new collectionClass(models,options);
+						cacheObject('collections',collectionTemplate,cache,instance);
+						return instance;
+					}
+					//cache = cacheKey(collectionTemplate,cache);
 					//return the class if options.class is true otherwise return a new instance
-					return options.class ? collectionClass : new collectionClass(models,options);
+					//return options.class ? collectionClass : new collectionClass(models,options);
+				},
+				get:function(key){
+					return factory.cache.collections[key];
+				},
+				destroy:function(key){
+					factory.cache.collections[key].close();
+					factory.cache.collections[key]=null;
 				}
 			},
 			model:{
 				//IF I CHANGE SIGNATURE REMEMBER TO CHANGE VIEW ALSO!!!
 				create:function(modelTemplate,data,options,cache){
+
 					options = options || {};
 					modelTemplate = app.loadSync(modelTemplate);
 
@@ -356,17 +419,39 @@ define(['underscore', 'backbone','base/controller','base/model','base/view','bas
 						modelClass = function(data,options){
 							var modelInstance = new (Backbone.Model.extend(model))(data,options || {});
 							app.addGlobalHandler.call(modelInstance);
-							if(app.isNode){
+
+//							_.each(modelInstance.globalEvents,function(method,event){
+//								modelInstance.listenTo(app,event,modelInstance[method]);
+//							});
+							return modelInstance;
+							/*if(app.isNode){
 								modelInstance.on('error',function(m,resp){
 									if(resp.Error){
 										app.error(resp);
 									}
 								});
-							}
-							_.extend(this,modelInstance);
+							}*/
+//							_.extend(this,modelInstance);
+//							app.addGlobalHandler.call(this);
+							//console.log('create model')
 						};
+					if(options.class){
+						return modelClass;
+					}else{
+						var instance = new modelClass(data,options);
+						cacheObject('models',modelTemplate,cache,instance);
+						return instance;
+					}
+					//cache = cacheKey(modelTemplate,cache);
 					//return the class if options.class is true otherwise return a new instance
-					return options.class ? modelClass : new modelClass(data,options);
+					//return options.class ? modelClass : new modelClass(data,options);
+				},
+				get:function(key){
+					return factory.cache.views[key];
+				},
+				destroy:function(key){
+					factory.cache.views[key].close();
+					factory.cache.views[key]=null;
 				}
 			},
 			controller:{

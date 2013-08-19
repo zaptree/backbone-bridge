@@ -25,8 +25,7 @@ define(['underscore'
 			//console.log('the main controller before method runs');
 		},
 		index:function(){
-			var collection = this.app.factory.collection.create('modules/blog/collections/posts');
-
+			var collection = this.app.factory.collection.create('modules/blog/collections/posts',null,null);
 			var view = this.app.factory.view.create('modules/blog/views/index',{
 				collection:collection
 			});

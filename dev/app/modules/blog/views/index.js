@@ -3,9 +3,18 @@ define(['underscore'],function(_){
 		template:'modules/blog/templates/index',
 		globalEvents:{},
 		events:{
-			'click .delete-post':'delete'
+			'click .delete-post':'delete',
+			'click #loop':'loop',
+			'click #once':'once'
 		},
-
+		loop:function(){
+			for(var i = 0; i< 30000; i++){
+				$.get('/posts/create?'+i);
+			}
+		},
+		once:function(){
+			$.get('/posts/create?2');
+		},
 		afterRender:function(){},
 		delete:function(e){
 			var $el=$(e.currentTarget),

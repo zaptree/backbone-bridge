@@ -5,19 +5,21 @@ var memwatch = require('memwatch');
 var hd = new memwatch.HeapDiff();
 //var _ = require('./app/vendors/underscore.js');
 memwatch.on('leak', function(info) {
-	//console.log(info);
 	var diff = hd.end();
 	//console.log(diff);
-	console.log(diff.after.size);
+	//console.log(diff.after.size);
 	hd = new memwatch.HeapDiff();
+
+
 
 });
 memwatch.on('stats', function(stats) {
-	//console.log(stats);
+	console.log((Math.round(stats.current_base/10000)/100)+' mb --');
 });
 GLOBAL.debug = function(msg){
 	console.log(msg)
 };
+
 
 requirejs.config({
 	config: {
@@ -110,16 +112,10 @@ requirejs([
 
 		//return Backbone.$.ajax.apply(Backbone.$, arguments);
 	};
-	//I need to load all the templates
 
-
-	//Backbone.history.start({silent: true});
-
-	//Backbone.history.loadUrl('home/whatever');req
-	//Backbone.history.loadUrl('home');
 
 	var server = connect()
-		.use(connect.logger('dev'))
+		//.use(connect.logger('dev'))
 		.use(connect.static('public'));
 	if(settings.mode==='dev'){
 		server.use('/app',connect.static('app'))
@@ -136,75 +132,15 @@ requirejs([
 
 				proxy:settings.requestProxy
 			})).pipe(res);
-			/**/
-			/*request({
-				url:settings.apiBaseUrl+(req.url.indexOf(settings.clientApiProxyPathPath) === 0 ? req.url.replace(settings.clientApiProxyPathPath,'') : req.url),
-				headers:req.headers,
-				form:options.data,
-				method:req.method,
-				proxy:settings.requestProxy
-
-			},function (error, response, body) {
-				//console.log(body);
-				if(error){
-					//todo:handle errors (options.error)
-					console.log('There was an error getting the request')
-				}
-				if(response.statusCode<300){
-					options.success(JSON.parse(body),response.statusText);
-				}
-
-			});*/
-			/*var url = settings.clientApiProxyPath+req.url,
-				data=[
-					{
-						id:1,
-						title:'The weather is going to be great',
-						author:'John'
-					},
-					{
-						id:2,
-						title:'Stocks are on the rise',
-						author:'Peter'
-					},
-					{
-						id:3,
-						title:'World cup qualifiers latest scores',
-						author:'Alex'
-					}
-				],
-				responseData={error:'no path was matched'},
-				wait=500;
-
-			if(url=='/api/posts'){
-				wait=0;
-				responseData=data;
-			}else if(url=='/api/posts/1'){
-				responseData = data[0];
-				responseData.text = "The latest satellite images tell us that the weather will be great so you can make plans to go to the beach."
-			}else if(url=='/api/posts/2'){
-				wait=1000;
-				responseData = data[1];
-				responseData.text = "It looks like the stock market is yielding record profits for investors."
-			}else if(url=='/api/posts/3'){
-				responseData = data[2];
-				responseData.text = "Teams are battling out for a spot in the world cup qualifiers, stay tuned for the latest scores."
-
-			}
-			_.delay(function(){
-				res.writeHead(200, { 'Content-Type': 'application/json' });
-				//console.log(JSON.stringify(responseData))
-				res.write(JSON.stringify(responseData));
-				res.end();
-			},wait);*/
 
 		});
 	}
+
 	server.use(function(req, res){
 //		throw new Error('ssss');
 //		return;
 
-
+		//console.log(req);
 		//res.shouldKeepAlive=false;
 		var url = req.url;
 		var $ = cheerio.load(_.template(tmplIndex,settings,{variable: 'data'})),
@@ -233,14 +169,23 @@ requirejs([
 		});
 		//todo: I think backbone saves routers so we need to clean it up at the end of every request or find some solution
 		app.router = new router();
+		var noRouteFound = true;
 		//I can use this alternatively
 		app.router.on('route',function(method,args){
+			noRouteFound = false;
 			var parts = method.split('.');
 			app.dispatch(parts[0],parts[1],args);
 		});
+		//app.shutdown();
 		Backbone.history.loadUrl(url);
 
-
+		if(noRouteFound){
+			//todo:I should set up an html page that will handle the default 404 if none was set through backbone
+			app.$= cheerio.load("<h1>404 page not found.</h1><p>The url: <strong>"+url+"</strong> did not match any of your routes.</p>");
+			app.pendingViewsHandler();
+		}
+		//res.end('finish');
+		//return;
 		//app.req = req;
 
 		//app.pendingViewsHandler();

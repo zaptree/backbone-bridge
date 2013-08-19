@@ -7,6 +7,12 @@ define(['underscore', 'backbone','factory','base/controller','base/model','base/
 		//any property that is not a primitive and stores state must be initialized in the constructor
 		this.loadedControllers = {};
 		this.loadedTemplates = {};
+		this.factory.cache = {
+			objects:{},
+			views:{},
+			collections:{},
+			models:{}
+		};
 	};
 	_.extend(app.prototype,{
 		isNode:false,
@@ -41,14 +47,14 @@ define(['underscore', 'backbone','factory','base/controller','base/model','base/
 		loadSync:function(objTemplate){
 			if(_.isString(objTemplate)){
 				if(require.defined(objTemplate)){
-					return requirejs(objTemplate);
+					return _.extend({},requirejs(objTemplate));
 				}else{
 					this.error({
 						Error:new Error("Module "+objTemplate+" had not been loaded. To load a module synchronously you must make sure it was already loaded as a dependency before hand.")
 					});
 				}
 			}
-			return objTemplate;
+			return _.extend({},objTemplate);
 		},
 		error:function(error){
 			var _this = this;
@@ -70,11 +76,26 @@ define(['underscore', 'backbone','factory','base/controller','base/model','base/
 				lc[controllerPath].run(method,args);
 				return;
 			}
-			require([controllerPath],function(controllerTemplate){
+			//todo: this was a quick hack because pendingViewsHandler would have 0 if view renders before async load of controller
+			if(this.isNode){
+				var controllerTemplate = require(controllerPath);
 				var controller = _this.factory.controller.create(controllerTemplate);
 				lc[controllerPath] = controller;
 				controller.run(method,args);
-			});
+				//this is important so that it closes the request if there where no views created pending rendering
+				// (it will render the index file with no content)
+				_this.pendingViewsHandler();
+			}else{
+				require([controllerPath],function(controllerTemplate){
+					var controller = _this.factory.controller.create(controllerTemplate);
+					lc[controllerPath] = controller;
+					controller.run(method,args);
+					//this is important so that it closes the request if there where no views created pending rendering
+					// (it will render the index file with no content)
+					_this.pendingViewsHandler();
+				});
+			}
+
 		},
 		loadTemplate:function(template,callback){
 			if(this.isNode){
@@ -111,8 +132,16 @@ define(['underscore', 'backbone','factory','base/controller','base/model','base/
 			//todo:Emptying handlers might not be ok if we call a route server side after a async operation, I need to rethink this... somehow remove only the handler in the current context? assign an id to it?
 			//we need to clean up the handlers otherwise they will keep on adding routes on every request
 			Backbone.history.handlers = [];
+			_this.$ = null;
+			this.request = null;
+			this.response = null;
+			this.factory = null;
+			this.loadedControllers = null;
+			this.loadedTemplates = null;
+			//this.factory.cache = null;
 			_this.router.off();//remove even binds on the router
 			_this.trigger('shutdown');
+			//_this.trigger('shutdown');
 		},
 		_shutdown:function(){
 			var _this= this;
