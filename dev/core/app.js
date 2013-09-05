@@ -129,7 +129,8 @@ define(['underscore', 'backbone','factory','base/controller','base/model','base/
 		},
 		shutdown:function(){
 			var _this = this;
-			//todo:Emptying handlers might not be ok if we call a route server side after a async operation, I need to rethink this... somehow remove only the handler in the current context? assign an id to it?
+			//todo: IMPORTANT!!! Emptying handlers might not be ok if we call a route server side after a async operation, I need to rethink this... somehow remove only the handler in the current context? assign an id to it?
+			//todo: idea - for above problem I could create a new router every time I route and clean it up right after when in node
 			//we need to clean up the handlers otherwise they will keep on adding routes on every request
 			Backbone.history.handlers = [];
 			_this.$ = null;

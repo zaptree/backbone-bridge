@@ -1,5 +1,26 @@
 define(['underscore', 'backbone','base/controller','base/model','base/view','base/collection'], function   (_,Backbone,baseController,baseModel,baseView,baseCollection) {
 	//return null;
+	function runFilters(action,args,callback){
+		if(this.filters){
+			var _this=this,
+				running = 0,
+				complete = false;
+			_.each(this.filters,function(options,filter){
+				if(filter[action]){
+					running++;
+					var filter_args = _.clone(args);
+					filter_args.push(options);
+					_this.async.call(_this,filter[action],filter_args,function(){
+						running--;
+					});
+				}
+			});
+			complete = true;
+			if(running===0){
+				callback();
+			}
+		}
+	}
 	function async(method,args,callback){
 		var i = arguments.length,
 			_this=this;
@@ -283,6 +304,7 @@ define(['underscore', 'backbone','base/controller','base/model','base/view','bas
 			obj.app = app;
 			obj.async = async;
 			obj.await = await;
+			obj.factory = app.factory;
 			//merge globalEvents and events from all three (note that the core overwrites the core.base events if it is defined and not merged);
 			obj.globalEvents = _.extend({}, core.globalEvents || coreTemplates.base.globalEvents || {} ,base.globalEvents || {},objTemplate.globalEvents || {});
 			//app.addGlobalHandler.call(obj); //

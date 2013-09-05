@@ -25,7 +25,7 @@ define(['underscore','modules/layout/views/default'],function(_,viewDefault){
 		},
 		default:function(options){
 
-			var view = this.app.factory.view.create(viewDefault, _.extend({
+			var view = this.factory.view.create(viewDefault, _.extend({
 					model:{testme:'hello'}
 				},options));
 
