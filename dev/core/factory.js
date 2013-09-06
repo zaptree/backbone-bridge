@@ -1,24 +1,26 @@
 define(['underscore', 'backbone','base/controller','base/model','base/view','base/collection'], function   (_,Backbone,baseController,baseModel,baseView,baseCollection) {
-	//return null;
+
 	function runFilters(action,args,callback){
 		if(this.filters){
 			var _this=this,
-				running = 0,
-				complete = false;
-			_.each(this.filters,function(options,filter){
-				if(filter[action]){
-					running++;
-					var filter_args = _.clone(args);
-					filter_args.push(options);
-					_this.async.call(_this,filter[action],filter_args,function(){
-						running--;
-					});
-				}
-			});
-			complete = true;
-			if(running===0){
-				callback();
-			}
+				i= 0,
+				runFilter = function(filteredArgs){
+					if(_this.filters[i]){
+						var filter = _this.app.loadSync(_this.filters[i].name),
+							filter_args = _.clone(filteredArgs);
+						filter_args.push(_this.filters[i]);
+						_this.async.call(_this,filter[action],filter_args,function(){
+							i++;
+							runFilter(arguments);
+						});
+					}else{
+						callback.apply(_this,filteredArgs);
+					}
+				};
+			//start function that runs filters one by one passing output of one as input to the other
+			runFilter(args);
+		}else{
+			callback.apply(_this,args);
 		}
 	}
 	function async(method,args,callback){
@@ -30,21 +32,29 @@ define(['underscore', 'backbone','base/controller','base/model','base/view','bas
 			_this._async=true;
 			return function(){
 				var method = _this._async_method;
-				_this._async=false;
 				_this._async_method = null;
 				method.apply(_this,arguments);
 			};
 
-		}else if(i===2){
+		}else{
+			//reset async to false
+			_this._async=false;
+		}
+
+		if(i===2){
 			//if there are only to arguments then we passed only method and callback
 			callback = args;
 			args = [];
 		}
 		_this._async_method = callback;
-		method.apply(_this,args);
+		var returnArgs = method.apply(_this,args);
 		//if _this._async = true it means that the method called async so we let it resolve on its own
 		//if _this._async == false then that means it was not an async method so we call the callback automatically
-		if(!_this._async){callback();}
+		if(!_this._async){
+			//if we did not return an array then convert to array
+			returnArgs = returnArgs instanceof Array ? returnArgs : [returnArgs];
+			callback.apply(_this,returnArgs);
+		}
 
 	}
 	function await(count,callback){
@@ -58,6 +68,18 @@ define(['underscore', 'backbone','base/controller','base/model','base/view','bas
 			}
 		}
 	}
+
+	//methods for the sake of overriding some backbone core methods:
+	var wrapError = function (model, options) {
+		var error = options.error;
+		options.error = function(resp) {
+			if (error) error(model, resp, options);
+			model.trigger('error', model, resp, options);
+		};
+	};
+
+
+
 	var coreTemplates = {
 		//all factory objects inherit from this
 		base:{
@@ -222,6 +244,35 @@ define(['underscore', 'backbone','base/controller','base/model','base/view','bas
 		model:{
 			globalEvents:{
 				'shutdown':'shutdown'
+			},
+			fetch: function(options) {
+				runFilters.call(this,'preFetch',[options],function(filteredOptions){
+					options = filteredOptions || options;
+				});
+
+				options = options ? _.clone(options) : {};
+				if (options.parse === void 0) options.parse = true;
+				var model = this;
+				var success = options.success;
+
+				options.success = function(resp) {
+					runFilters.call(model,'preParse',[resp,options],function(filteredResp,filteredOptions){
+						options = filteredOptions || options;
+						resp = filteredResp || resp;
+						if(!options.stop){
+							if (!model.set(model.parse(resp, options), options)) return false;
+							if (success) success(model, resp, options);
+							model.trigger('sync', model, resp, options);
+						}
+
+					});
+
+				};
+				wrapError(this, options);
+				if(!options.stop){
+					return this.sync('read', this, options);
+				}
+
 			}
 		},
 		collection:{
@@ -307,6 +358,10 @@ define(['underscore', 'backbone','base/controller','base/model','base/view','bas
 			obj.factory = app.factory;
 			//merge globalEvents and events from all three (note that the core overwrites the core.base events if it is defined and not merged);
 			obj.globalEvents = _.extend({}, core.globalEvents || coreTemplates.base.globalEvents || {} ,base.globalEvents || {},objTemplate.globalEvents || {});
+
+			//obj.filters = _.extend({}, core.filters || coreTemplates.base.filters || {} ,base.filters || {},objTemplate.filters || {});
+			obj.filters = [].concat(core.filters || coreTemplates.base.filters || [], base.filters || [], objTemplate.filters || []);
+
 			//app.addGlobalHandler.call(obj); //
 			return obj;
 		}
