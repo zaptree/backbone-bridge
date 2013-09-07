@@ -2,25 +2,37 @@ define(['underscore', 'backbone','base/controller','base/model','base/view','bas
 
 	function runFilters(action,args,callback){
 		if(this.filters){
+			args = args || [];
+			var filters = this.filters;
+			//this implementation allows both array and object setting of filters, I am leaning to objects, arrays allow
+			// multiple filters of the same type but objects allow overriding filters from inherited classes and look nicer
+			if(!_.isArray(this.filters)){
+				filters = [];
+				_.each(this.filters,function(options,filter){
+					filters.push(_.extend({
+						filter:filter
+					},options));
+				});
+			}
 			var _this=this,
 				i= 0,
 				runFilter = function(filteredArgs){
-					if(_this.filters[i]){
-						var filter = _this.app.loadSync(_this.filters[i].name),
+					if(filters[i]){
+						var filter = _this.app.loadSync(filters[i].filter),
 							filter_args = _.clone(filteredArgs);
-						filter_args.push(_this.filters[i]);
+						filter_args.push(filters[i]);
 						_this.async.call(_this,filter[action],filter_args,function(){
 							i++;
 							runFilter(arguments);
 						});
 					}else{
-						callback.apply(_this,filteredArgs);
+						callback && callback.apply(_this,filteredArgs);
 					}
 				};
 			//start function that runs filters one by one passing output of one as input to the other
 			runFilter(args);
 		}else{
-			callback.apply(_this,args);
+			callback && callback.apply(_this,args);
 		}
 	}
 	function async(method,args,callback){
@@ -286,13 +298,18 @@ define(['underscore', 'backbone','base/controller','base/model','base/view','bas
 			run:function(method,args){
 				var _this = this;
 				//call the before method
-				_this.async.call(_this,_this.before,function(){
-					//call the controller action
-					_this.async.call(_this,_this[method],args,function(){
-						//call the after method
-						_this.after.call(_this);
+				runFilters.call(_this,'preBefore',[],function(){
+					_this.async.call(_this,_this.before,function(){
+						//call the controller action
+						_this.async.call(_this,_this[method],args,function(){
+							//call the after method
+							_this.after.call(_this);
+							runFilters.call(_this,'postAfter');
+						});
 					});
 				});
+
+
 			},
 			//add default before method
 			before:function(){},
@@ -302,24 +319,27 @@ define(['underscore', 'backbone','base/controller','base/model','base/view','bas
 				var _this = this,
 					done = await(2),
 					renderId=this.app.renderId;
-				layout = layout || 'default';
-				//TODO:I need to find a better way to call the renderLayout (maybe add it to _this.app.js?)
-				_this.app.dispatch('modules/layout/layout','renderLayout',[layout,{'onRender':function(){
-					var $this = this;
-					done(function(){
-						if(_this.app.renderId==renderId){
-							_this.app.$document.html($this.$el);
-							_this.app.$('#content').html(view.$el);
-						}
-					});
-				}}]);
+				runFilters.call(_this,'preRender',[],function(){
+					layout = layout || 'default';
+					//TODO:I need to find a better way to call the renderLayout (maybe add it to _this.app.js?)
+					_this.app.dispatch('modules/layout/layout','renderLayout',[layout,{'onRender':function(){
+						var $this = this;
+						done(function(){
+							if(_this.app.renderId==renderId){
+								_this.app.$document.html($this.$el);
+								_this.app.$('#content').html(view.$el);
+								runFilters.call(_this,'postRender');
+							}
+						});
+					}}]);
 
-				var onRender = view.options.onRender;
-				view.options.onRender = function(){
-					onRender && onRender.call(this);
-					done();
-				};
-				view.render();
+					var onRender = view.options.onRender;
+					view.options.onRender = function(){
+						onRender && onRender.call(this);
+						done();
+					};
+					view.render();
+				});
 			}
 
 		}
@@ -359,8 +379,8 @@ define(['underscore', 'backbone','base/controller','base/model','base/view','bas
 			//merge globalEvents and events from all three (note that the core overwrites the core.base events if it is defined and not merged);
 			obj.globalEvents = _.extend({}, core.globalEvents || coreTemplates.base.globalEvents || {} ,base.globalEvents || {},objTemplate.globalEvents || {});
 
-			//obj.filters = _.extend({}, core.filters || coreTemplates.base.filters || {} ,base.filters || {},objTemplate.filters || {});
-			obj.filters = [].concat(core.filters || coreTemplates.base.filters || [], base.filters || [], objTemplate.filters || []);
+			obj.filters = _.extend({}, core.filters || coreTemplates.base.filters || {} ,base.filters || {},objTemplate.filters || {});
+			//obj.filters = [].concat(core.filters || coreTemplates.base.filters || [], base.filters || [], objTemplate.filters || []);
 
 			//app.addGlobalHandler.call(obj); //
 			return obj;

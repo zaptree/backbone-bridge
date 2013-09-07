@@ -8,6 +8,7 @@ define(['underscore'
 	, 'modules/blog/views/read'
 	, 'modules/blog/views/create'
 	, 'modules/blog/views/update'
+	, 'filters/_exampleControllerFilter'
 ],function(_
 		//models
 		, modelPost
@@ -21,6 +22,9 @@ define(['underscore'
 	return {
 		layout:'default',
 		globalEvents:{},
+		filters:{
+			'filters/_exampleControllerFilter':''
+		},
 		before:function(){
 			//console.log('the main controller before method runs');
 		},
